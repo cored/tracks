@@ -18,20 +18,23 @@ class TagCloud
     @tags
   end
 
-  def compute
-    max, @min= 0, 0
-    tags.each { |t|
-      max = [t.count.to_i, max].max
-      @min= [t.count.to_i, @min].min
-    }
+  def min
+    0
+  end
 
-    @divisor= ((max - @min) / levels) + 1
-
-    params = [sql(@cut_off), user.id] 
-    params += [@cut_off, @cut_off] if @cut_off
+  def divisor 
+    @divisor= ((max - min) / levels) + 1
   end
 
   private 
+
+  def max
+    tag_counts.max
+  end
+
+  def tag_counts
+    @tag_counts ||= tags.map(&:count)
+  end
 
   # TODO: parameterize limit
   def sql(cut_off = nil)
