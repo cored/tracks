@@ -16,13 +16,7 @@ class Project
     # Went from GROUP BY p.id to p.name for compatibility with postgresql. Since
     # the name is forced to be unique, this should work.
     @projects_and_actions = current_user.projects.find_by_sql(
-      "SELECT p.id, p.name, count(*) AS count "+
-        "FROM projects p, todos t "+
-        "WHERE p.id = t.project_id "+
-        "AND t.user_id=#{current_user.id} " +
-        "GROUP BY p.id, p.name "+
-        "ORDER BY count DESC " +
-        "LIMIT 10"
+      [sql_projects_and_actions, current_user.id]
     )
 
     # get the first 10 projects with their actions count of actions that have
@@ -30,26 +24,14 @@ class Project
 
     # using GROUP BY p.name (was: p.id) for compatibility with Postgresql. Since
     # you cannot create two contexts with the same name, this will work.
-    @projects_and_actions_last30days = current_user.projects.find_by_sql([
-        "SELECT p.id, p.name, count(*) AS count "+
-          "FROM todos t, projects p "+
-          "WHERE t.project_id = p.id AND "+
-          "      (t.created_at > ? OR t.completed_at > ?) "+
-          "AND t.user_id=#{current_user.id} " +
-          "GROUP BY p.id, p.name "+
-          "ORDER BY count DESC " +
-          "LIMIT 10", @cut_off_month, @cut_off_month]
+    @projects_and_actions_last30days = current_user.projects.find_by_sql(
+      [sql_projects_and_actions_last_30days, current_user.id, @cut_off_month, @cut_off_month]
     )
 
     # get the first 10 projects and their running time (creation date versus
     # now())
     @projects_and_runtime_sql = current_user.projects.find_by_sql(
-      "SELECT id, name, created_at "+
-        "FROM projects "+
-        "WHERE state='active' "+
-        "AND user_id=#{current_user.id} "+
-        "ORDER BY created_at ASC "+
-        "LIMIT 10"
+      sql_projects_and_runtime(current_user)
     )
 
     i=0
@@ -66,5 +48,35 @@ class Project
 
   def difference_in_days(date1, date2)
     return ((date1.utc.at_midnight-date2.utc.at_midnight)/SECONDS_PER_DAY).to_i
+  end
+
+  def sql_projects_and_actions
+    "SELECT p.id, p.name, count(*) AS count "+
+      "FROM projects p, todos t "+
+      "WHERE p.id = t.project_id "+
+      "AND t.user_id=? " +
+      "GROUP BY p.id, p.name "+
+      "ORDER BY count DESC " +
+      "LIMIT 10"
+  end
+
+  def sql_projects_and_actions_last_30days
+    "SELECT p.id, p.name, count(*) AS count "+
+      "FROM projects p, todos t "+
+      "WHERE p.id = t.project_id AND "+
+      "      (t.created_at > ? OR t.completed_at > ?) "+
+      "AND t.user_id=? " +
+      "GROUP BY p.id, p.name "+
+      "ORDER BY count DESC " +
+      "LIMIT 10"
+  end
+
+  def sql_projects_and_runtime(current_user)
+    "SELECT id, name, created_at "+
+      "FROM projects "+
+      "WHERE state='active' "+
+      "AND user_id=#{current_user.id} "+
+    "ORDER BY created_at ASC "+
+      "LIMIT 10"
   end
 end
