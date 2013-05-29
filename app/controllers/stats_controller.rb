@@ -499,49 +499,17 @@ class StatsController < ApplicationController
   end
 
   def get_stats_projects
-    # get the first 10 projects and their action count (all actions)
-    #
-    # Went from GROUP BY p.id to p.name for compatibility with postgresql. Since
-    # the name is forced to be unique, this should work.
-    @projects_and_actions = current_user.projects.find_by_sql(
-      "SELECT p.id, p.name, count(*) AS count "+
-        "FROM projects p, todos t "+
-        "WHERE p.id = t.project_id "+
-        "AND t.user_id=#{current_user.id} " +
-        "GROUP BY p.id, p.name "+
-        "ORDER BY count DESC " +
-        "LIMIT 10"
-    )
+    project = Project.new(current_user, @today, @cut_off_month)
+    project.compute
+    @projects_and_actions = project.projects_and_actions
 
-    # get the first 10 projects with their actions count of actions that have
-    # been created or completed the past 30 days
+    @projects_and_actions_last30days = project.projects_and_actions_last30days
 
-    # using GROUP BY p.name (was: p.id) for compatibility with Postgresql. Since
-    # you cannot create two contexts with the same name, this will work.
-    @projects_and_actions_last30days = current_user.projects.find_by_sql([
-        "SELECT p.id, p.name, count(*) AS count "+
-          "FROM todos t, projects p "+
-          "WHERE t.project_id = p.id AND "+
-          "      (t.created_at > ? OR t.completed_at > ?) "+
-          "AND t.user_id=#{current_user.id} " +
-          "GROUP BY p.id, p.name "+
-          "ORDER BY count DESC " +
-          "LIMIT 10", @cut_off_month, @cut_off_month]
-    )
-
-    # get the first 10 projects and their running time (creation date versus
-    # now())
-    @projects_and_runtime_sql = current_user.projects.find_by_sql(
-      "SELECT id, name, created_at "+
-        "FROM projects "+
-        "WHERE state='active' "+
-        "AND user_id=#{current_user.id} "+
-        "ORDER BY created_at ASC "+
-        "LIMIT 10"
-    )
+    @projects_and_runtime_sql = project.projects_and_runtime_sql
 
     i=0
-    @projects_and_runtime = Array.new(10, [-1, t('common.not_available_abbr'), t('common.not_available_abbr')])
+
+    @projects_and_runtime = project.projects_and_runtime
     @projects_and_runtime_sql.each do |r|
       days = difference_in_days(@today, r.created_at)
       # add one so that a project that you just created returns 1 day
