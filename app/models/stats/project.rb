@@ -4,7 +4,7 @@ class Project
     :projects_and_actions_last30days, :projects_and_runtime_sql,
     :projects_and_runtime
 
-  def initialize(current_user, today, cut_off_month)
+  def initialize(current_user, today, cut_off_month = nil)
     @current_user = current_user
     @today = today
     @cut_off_month = cut_off_month
